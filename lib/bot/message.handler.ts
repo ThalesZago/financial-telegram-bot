@@ -86,7 +86,7 @@ export async function handleMessage(text: string, telegramUser: TelegramUser): P
       case "delete_last_transaction": {
         const deleted = await deleteLastTransaction(user.id);
         if (!deleted) return formatError("No transactions to delete.");
-        return formatDeletedTransaction(deleted.amount.toNumber(), deleted.category);
+        return formatDeletedTransaction(Number(deleted.amount), deleted.category);
       }
 
       case "category_report": {

@@ -1,4 +1,4 @@
-import type { Transaction } from "../../app/generated/prisma";
+import type { Transaction } from "../services/transaction.service";
 
 export function formatExpenseCreated(amount: number, category: string): string {
   return `✅ Expense recorded successfully.\n\nAmount: $${amount.toFixed(2)}\nCategory: ${capitalize(category)}`;

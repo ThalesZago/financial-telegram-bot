@@ -1,36 +1,31 @@
-import { prisma } from "../db";
-
-function currentMonthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  return { start, end };
-}
+import { pool } from "../db";
 
 export async function getMonthlySummary(userId: string) {
-  const { start, end } = currentMonthRange();
+  const { rows: totals } = await pool.query<{ type: string; total: string }>(
+    `SELECT type, COALESCE(SUM(amount), 0) AS total
+     FROM transactions
+     WHERE user_id = $1
+       AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', NOW())
+     GROUP BY type`,
+    [userId]
+  );
 
-  const transactions = await prisma.transaction.findMany({
-    where: { userId, transactionDate: { gte: start, lte: end } },
-  });
+  const income = parseFloat(totals.find((r) => r.type === "INCOME")?.total ?? "0");
+  const expenses = parseFloat(totals.find((r) => r.type === "EXPENSE")?.total ?? "0");
 
-  let income = 0;
-  let expenses = 0;
-  const categoryTotals: Record<string, number> = {};
+  const { rows: categories } = await pool.query<{ category: string; total: string }>(
+    `SELECT category, SUM(amount) AS total
+     FROM transactions
+     WHERE user_id = $1
+       AND type = 'EXPENSE'
+       AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', NOW())
+     GROUP BY category
+     ORDER BY total DESC
+     LIMIT 5`,
+    [userId]
+  );
 
-  for (const t of transactions) {
-    const amount = t.amount.toNumber();
-    if (t.type === "INCOME") {
-      income += amount;
-    } else {
-      expenses += amount;
-      categoryTotals[t.category] = (categoryTotals[t.category] ?? 0) + amount;
-    }
-  }
-
-  const topCategories = Object.entries(categoryTotals)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const topCategories: [string, number][] = categories.map((r) => [r.category, parseFloat(r.total)]);
 
   return { income, expenses, balance: income - expenses, topCategories };
 }
@@ -40,21 +35,23 @@ export async function getCategoryReport(
   category: string,
   period: "current_month" | "all_time" = "current_month"
 ) {
-  const where: Record<string, unknown> = {
-    userId,
-    category: category.toLowerCase(),
-    type: "EXPENSE",
-  };
+  const periodFilter =
+    period === "current_month"
+      ? `AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', NOW())`
+      : "";
 
-  if (period === "current_month") {
-    const { start, end } = currentMonthRange();
-    where.transactionDate = { gte: start, lte: end };
-  }
+  const { rows } = await pool.query<{ total: string; count: string }>(
+    `SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+     FROM transactions
+     WHERE user_id = $1
+       AND type = 'EXPENSE'
+       AND category = $2
+       ${periodFilter}`,
+    [userId, category.toLowerCase()]
+  );
 
-  const transactions = await prisma.transaction.findMany({ where });
-
-  const total = transactions.reduce((sum: number, t) => sum + t.amount.toNumber(), 0);
-  const count = transactions.length;
+  const total = parseFloat(rows[0]?.total ?? "0");
+  const count = parseInt(rows[0]?.count ?? "0", 10);
   const average = count > 0 ? total / count : 0;
 
   return { category, total, count, average };
