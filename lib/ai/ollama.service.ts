@@ -1,7 +1,6 @@
 import type { ParsedIntent } from "../parser/deterministic.parser";
 
-const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? "google/gemma-3-27b-it:free";
 
 const SYSTEM_PROMPT = `You are a financial assistant. Parse the user message and return ONLY a JSON object with no extra text.
 
@@ -21,12 +20,14 @@ Rules:
 - Return ONLY valid JSON, no markdown, no explanation`;
 
 export async function parseWithAI(message: string): Promise<ParsedIntent> {
-  const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+    },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
+      model: OPENROUTER_MODEL,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: message },
@@ -35,12 +36,11 @@ export async function parseWithAI(message: string): Promise<ParsedIntent> {
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama request failed: ${response.status}`);
+    throw new Error(`OpenRouter request failed: ${response.status}`);
   }
 
   const data = await response.json();
-  const content: string = data?.message?.content ?? "";
-
+  const content: string = data?.choices?.[0]?.message?.content ?? "";
   return validateAIResponse(content);
 }
 
