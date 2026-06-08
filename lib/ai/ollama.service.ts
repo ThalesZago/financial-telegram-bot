@@ -1,6 +1,6 @@
 import type { ParsedIntent } from "../parser/deterministic.parser";
 
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? "google/gemma-3-27b-it:free";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? "google/gemma-4-31b-it:free";
 
 const SYSTEM_PROMPT = `You are a financial assistant. Parse the user message and return ONLY a JSON object with no extra text.
 
