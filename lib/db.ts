@@ -1,11 +1,6 @@
-import { Pool } from "pg";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 
-const globalForPg = globalThis as unknown as { pool: Pool };
+neonConfig.webSocketConstructor = ws;
 
-export const pool =
-  globalForPg.pool ??
-  new Pool({ connectionString: process.env.DATABASE_URL });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPg.pool = pool;
-}
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });

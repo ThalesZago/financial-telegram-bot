@@ -58,7 +58,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const reply = await handleMessage(message.text, telegramUser);
     await sendTelegramMessage(chatId, reply);
-  } catch {
+  } catch (err) {
+    console.error("[webhook] unhandled error:", err);
     await sendTelegramMessage(chatId, "❌ An unexpected error occurred. Please try again.");
   }
 
